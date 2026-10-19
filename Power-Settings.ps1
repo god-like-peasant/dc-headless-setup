@@ -4,9 +4,11 @@ $root = Join-Path $env:LOCALAPPDATA 'DesktopCommanderRemote'
 $backup = Join-Path $root 'power-settings-backup.json'
 $subSleep = 'SUB_SLEEP'
 $setting = 'STANDBYIDLE'
+
 $activeOutput = (& powercfg /getactivescheme 2>&1 | Out-String)
 $scheme = [regex]::Match($activeOutput, '[0-9a-fA-F-]{36}').Value
 if (-not $scheme) { throw 'Could not identify the active power plan.' }
+
 function Read-SleepTimeouts([string]$Plan) {
   $output = (& powercfg /query $Plan $subSleep $setting 2>&1 | Out-String)
   if ($LASTEXITCODE -ne 0) { throw 'Could not safely query sleep timeout values; no change was made.' }
@@ -15,6 +17,7 @@ function Read-SleepTimeouts([string]$Plan) {
   if (-not $acMatch.Success -or -not $dcMatch.Success) { throw 'Could not parse both AC and battery timeout values; no change was made.' }
   return @{ AC = [Convert]::ToInt32($acMatch.Groups[1].Value, 16); DC = [Convert]::ToInt32($dcMatch.Groups[1].Value, 16) }
 }
+
 if ($Mode -eq 'Status') {
   Write-Host "Active power plan: $scheme"
   $values = Read-SleepTimeouts $scheme
@@ -26,30 +29,12 @@ if ($Mode -eq 'Status') {
   Write-Host 'Hotspot uptime cannot be guaranteed across sleep, battery depletion, driver failures, internet loss, or external hotspot timeouts.'
   return
 }
+
 if ($Mode -eq 'Apply') {
   New-Item -ItemType Directory -Force -Path $root | Out-Null
   if (Test-Path -LiteralPath $backup) {
     $saved = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json
-    if ($saved.Scheme -notmatch '^[0-9a-fA-F-]{36}
-if ($Mode -eq 'Restore') {
-  if (-not (Test-Path -LiteralPath $backup)) { throw 'No saved power-settings backup exists; nothing was restored.' }
-  $old = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json
-  if ($old.Scheme -notmatch '^[0-9a-fA-F-]{36}$' -or $null -eq $old.AC -or $null -eq $old.DC) { throw 'The power backup did not pass validation; no change was made.' }
-  & powercfg /setacvalueindex $old.Scheme $subSleep $setting ([int]$old.AC)
-  if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved AC timeout.' }
-  & powercfg /setdcvalueindex $old.Scheme $subSleep $setting ([int]$old.DC)
-  if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved battery timeout.' }
-  $currentOutput = (& powercfg /getactivescheme 2>&1 | Out-String)
-  $currentScheme = [regex]::Match($currentOutput, '[0-9a-fA-F-]{36}').Value
-  if ($currentScheme -eq $old.Scheme) {
-    & powercfg /setactive $old.Scheme
-    if ($LASTEXITCODE -ne 0) { throw 'Restored saved values but Windows did not reactivate the saved plan.' }
-  } else {
-    Write-Host "Restored values on saved plan $($old.Scheme) without changing the currently active plan $currentScheme."
-  }
-  Write-Host 'Restored saved AC and battery sleep timeout values.'
-}
- -or $null -eq $saved.AC -or $null -eq $saved.DC) {
+    if ($saved.Scheme -notmatch '^[0-9a-fA-F-]{36}$' -or $null -eq $saved.AC -or $null -eq $saved.DC) {
       throw 'The existing power backup did not pass validation; no change was made.'
     }
     if ($saved.Scheme -ne $scheme) {
@@ -67,10 +52,13 @@ if ($Mode -eq 'Restore') {
   Write-Host "AC sleep timeout changed. Original settings saved at $backup. Restore with Power-Settings.ps1 -Mode Restore."
   return
 }
+
 if ($Mode -eq 'Restore') {
   if (-not (Test-Path -LiteralPath $backup)) { throw 'No saved power-settings backup exists; nothing was restored.' }
   $old = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json
-  if ($old.Scheme -notmatch '^[0-9a-fA-F-]{36}$' -or $null -eq $old.AC -or $null -eq $old.DC) { throw 'The power backup did not pass validation; no change was made.' }
+  if ($old.Scheme -notmatch '^[0-9a-fA-F-]{36}$' -or $null -eq $old.AC -or $null -eq $old.DC) {
+    throw 'The power backup did not pass validation; no change was made.'
+  }
   & powercfg /setacvalueindex $old.Scheme $subSleep $setting ([int]$old.AC)
   if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved AC timeout.' }
   & powercfg /setdcvalueindex $old.Scheme $subSleep $setting ([int]$old.DC)
