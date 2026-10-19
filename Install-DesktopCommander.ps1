@@ -66,12 +66,14 @@ function Install-UserLocalNode {
     $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToUpperInvariant()
     if ($actualHash -ne $expectedHash) { throw 'The Node.js ZIP checksum did not match. It will not be extracted.' }
     $nodeFolder = Join-Path $nodeRoot "node-$version-win-$arch"
-    if (-not (Test-Path -LiteralPath (Join-Path $nodeFolder 'node.exe'))) {
+    $requiredFiles = @('node.exe', 'npm.cmd', 'npx.cmd')
+    $missingFiles = @($requiredFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $nodeFolder $_) -PathType Leaf) })
+    if ($missingFiles.Count -gt 0) {
       if (Test-Path -LiteralPath $nodeFolder) { Remove-Item -LiteralPath $nodeFolder -Recurse -Force }
       Expand-Archive -LiteralPath $zipPath -DestinationPath $nodeRoot -Force
     }
-    foreach ($required in @('node.exe', 'npm.cmd', 'npx.cmd')) {
-      if (-not (Test-Path -LiteralPath (Join-Path $nodeFolder $required))) { throw "The verified Node.js archive did not contain $required where expected." }
+    foreach ($required in $requiredFiles) {
+      if (-not (Test-Path -LiteralPath (Join-Path $nodeFolder $required) -PathType Leaf)) { throw "The verified Node.js archive did not contain $required where expected." }
     }
     return (Join-Path $nodeFolder 'node.exe')
   } finally {
@@ -102,7 +104,18 @@ $packageSpec = "@wonderwhy-er/desktop-commander@$packageVersion"
 
 $nodePath = Find-NodePath
 $npxPath = Find-NpxPath $nodePath
-if (-not $nodePath -or -not $npxPath) { $nodePath = Install-UserLocalNode; $npxPath = Find-NpxPath $nodePath }
+if ($nodePath -and $npxPath) {
+  $detectedVersion = (& $nodePath --version).Trim()
+  if ($detectedVersion -notmatch '^v?(\d+)\.' -or [int]$Matches[1] -lt 18) {
+    Write-Host "Found $detectedVersion, which is older than the required Node.js 18. Installing a verified user-local LTS copy instead." -ForegroundColor Yellow
+    $nodePath = $null
+    $npxPath = $null
+  }
+}
+if (-not $nodePath -or -not $npxPath) {
+  $nodePath = Install-UserLocalNode
+  $npxPath = Find-NpxPath $nodePath
+}
 if (-not $nodePath -or -not $npxPath) { throw 'Could not find working Node.js and npx. Install Node.js 18+ from https://nodejs.org/ and rerun.' }
 $nodeVersion = (& $nodePath --version).Trim()
 if ($nodeVersion -notmatch '^v?(\d+)\.' -or [int]$Matches[1] -lt 18) { throw "Node.js 18+ is required; found $nodeVersion." }

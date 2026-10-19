@@ -22,11 +22,16 @@ $version = (Get-Content -LiteralPath (Join-Path $repoRoot 'AGENT_VERSION.txt') -
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid pinned package version: $version" }
 if ($installer -notmatch 'AGENT_VERSION\.txt') { throw 'Installer does not read the single source-of-truth package pin.' }
 if ($installer -notmatch 'Get-FileHash' -or $installer -notmatch 'SHASUMS256\.txt') { throw 'Node.js fallback must verify the official ZIP checksum before extraction.' }
+if ($installer -notmatch 'Installing a verified user-local LTS copy instead' -or $installer -notmatch '\$missingFiles\.Count -gt 0') { throw 'Installer must recover from an outdated system Node.js and a partial local Node.js ZIP install.' }
+
 if ($installer -notmatch 'desktop-commander-device\\device\.json' -or $installer -notmatch "Read-Host 'After verifying this device is ONLINE") { throw 'Installer must require saved authorization and explicit online confirmation before scheduling.' }
 if ($installer -notmatch 'RunLevel Limited' -or $installer -notmatch 'AtLogOn') { throw 'Task must be per-user and limited-privilege at logon.' }
 if ($runner -notmatch '\$config\.PackageSpec' -or $runner -notmatch 'remote \*>> \$Log') { throw 'Run-Agent must use the pinned package and log output.' }
 if ($supervisor -notmatch 'OfflineGraceMinutes' -or $supervisor -notmatch 'Stop-ProcessTree' -or $supervisor -notmatch 'Start-Sleep -Seconds \$delay') { throw 'Supervisor is missing bounded recovery behavior.' }
 if ($supervisor -notmatch 'Channel error|Realtime channel is not open|Device marked as offline' -or $supervisor -notmatch 'Starting device authorization flow') { throw 'Supervisor needs channel-health and interactive-auth detection.' }
+$powerSettings = Get-Content -LiteralPath (Join-Path $repoRoot 'Power-Settings.ps1') -Raw
+if ($powerSettings -notmatch 'A backup exists for power plan' -or $powerSettings -notmatch 'Type APPLY') { throw 'Power changes must require confirmation and guard against applying over a mismatched saved plan.' }
+
 if ($bootstrap -notmatch 'Get-FileHash' -or $bootstrap -notmatch 'Expand-Archive' -or $bootstrap -notmatch '\$actual -ne \$expected') { throw 'Bootstrap must verify the published checksum before extraction.' }
 if ($bootstrap.IndexOf('$actual -ne $expected') -gt $bootstrap.IndexOf('Expand-Archive')) { throw 'Bootstrap extraction occurs before checksum validation.' }
 if ($uninstall -notmatch 'Get-CimInstance Win32_Process' -or $uninstall -notmatch 'authorization was preserved') { throw 'Uninstall must constrain process-tree termination and preserve authorization by default.' }
@@ -35,6 +40,8 @@ if ($page -notmatch 'releases/latest/download/dc-headless-setup-windows\.zip' -o
 $releaseWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\release.yml') -Raw
 if ($releaseWorkflow -notmatch "workflow_run\.conclusion == 'success'" -or $releaseWorkflow -notmatch "workflow_run\.event == 'push'") { throw 'Release must require successful push CI and exclude PR CI.' }
 if ($releaseWorkflow -notmatch 'workflow_run\.head_sha' -or $releaseWorkflow -notmatch '\$env:SOURCE_SHA') { throw 'Release must tag and describe the exact commit that passed CI.' }
+if ($releaseWorkflow -notmatch 'gh release view \$tag' -or $releaseWorkflow -notmatch 'gh release upload \$tag .*--clobber' -or $releaseWorkflow -notmatch 'Refusing to overwrite it') { throw 'Release retries must be idempotent and must not overwrite a tag for a different tested commit.' }
+
 
 $unsafePatterns = @('(?i)\bInvoke-Expression\b','(?i)\bEncodedCommand\b','(?i)Set-ExecutionPolicy\s+Unrestricted','(?i)New-Object\s+System\.Net\.(HttpListener|Sockets\.TcpListener)')
 $productionScripts = @($scriptFiles | Where-Object { $_.Name -ne 'Test-Kit.ps1' })
