@@ -82,8 +82,8 @@ function Install-UserLocalNode {
 Write-Host 'Desktop Commander Remote Device setup' -ForegroundColor Cyan
 Write-Host 'Installs the official remote agent for the current Windows user.'
 if (Is-Administrator) { throw 'Close this elevated window and rerun as your ordinary Windows user.' }
-
 New-Item -ItemType Directory -Force -Path $InstallRoot, $Root | Out-Null
+
 $sourceRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
 $targetRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
 $kitFiles = @('Install-DesktopCommander.ps1','Run-Agent.ps1','Supervisor.ps1','Status-DesktopCommander.ps1','Uninstall-DesktopCommander.ps1','Power-Settings.ps1','README.md','LICENSE','AGENT_VERSION.txt','Bootstrap-DesktopCommander.ps1')
@@ -120,11 +120,14 @@ $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
 Write-SetupLog "Setup started; Node=$nodeVersion; package=$packageSpec"
 Write-Host ''
 Write-Host 'FIRST-TIME / RECOVERY AUTHORIZATION' -ForegroundColor Yellow
-Write-Host 'The official agent will show a verification URL and one-time code. Compare the code character-for-character and approve only if it matches. Never share the code.'
-Write-Host 'Press Enter to start the official agent. When it reports a successful connection, press Ctrl+C once to return here.'
+Write-Host 'The official agent will open a separate console and show a verification URL and one-time code.'
+Write-Host 'Open the URL, compare the code character-for-character, and approve only if it matches. Never share the code.'
+Write-Host 'When the agent reports successful connection, press Ctrl+C in its console window. This installer will resume.'
 [void](Read-Host)
-& $npxPath --yes $packageSpec remote
-$agentExit = $LASTEXITCODE
+$cmdExe = Join-Path $env:SystemRoot 'System32\cmd.exe'
+$cmdArgs = '/d /s /c "' + '"' + $npxPath + '" --yes ' + $packageSpec + ' remote"'
+$remoteProcess = Start-Process -FilePath $cmdExe -ArgumentList $cmdArgs -WindowStyle Normal -PassThru -Wait
+$agentExit = $remoteProcess.ExitCode
 if ($agentExit -ne 0) { Write-SetupLog "Interactive remote command exited with code $agentExit after returning to the installer." }
 
 $sessionPath = Join-Path $HOME '.desktop-commander-device\device.json'

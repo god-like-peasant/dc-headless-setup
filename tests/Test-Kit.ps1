@@ -4,8 +4,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $scriptFiles = @(Get-ChildItem -LiteralPath $repoRoot -Filter '*.ps1' -File -Recurse | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' })
 if ($scriptFiles.Count -lt 7) { throw "Expected installer, bootstrap, runner, supervisor, status, power, and uninstall scripts; found $($scriptFiles.Count)." }
 foreach ($scriptFile in $scriptFiles) {
-  $tokens = $null
-  $parseErrors = $null
+  $tokens = $null; $parseErrors = $null
   [System.Management.Automation.Language.Parser]::ParseFile($scriptFile.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
   if ($parseErrors.Count -gt 0) {
     $messages = ($parseErrors | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }) -join [Environment]::NewLine
@@ -34,8 +33,9 @@ if ($uninstall -notmatch 'Get-CimInstance Win32_Process' -or $uninstall -notmatc
 if ($readme -notmatch 'Extract it' -or $readme -notmatch 'first authorization is intentionally interactive') { throw 'README is missing setup and pairing explanations.' }
 if ($page -notmatch 'releases/latest/download/dc-headless-setup-windows\.zip' -or $page -notmatch 'Extract All') { throw 'Landing page must point to the release ZIP and explain extraction.' }
 $unsafePatterns = @('(?i)\bInvoke-Expression\b','(?i)\bEncodedCommand\b','(?i)Set-ExecutionPolicy\s+Unrestricted','(?i)New-Object\s+System\.Net\.(HttpListener|Sockets\.TcpListener)')
+$productionScripts = @($scriptFiles | Where-Object { $_.Name -ne 'Test-Kit.ps1' })
 foreach ($pattern in $unsafePatterns) {
-  foreach ($scriptFile in $scriptFiles) {
+  foreach ($scriptFile in $productionScripts) {
     $text = Get-Content -LiteralPath $scriptFile.FullName -Raw
     if ($text -match $pattern) { throw "Potentially unsafe pattern '$pattern' found in $($scriptFile.Name)." }
   }

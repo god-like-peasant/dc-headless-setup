@@ -48,7 +48,13 @@ if ($Mode -eq 'Restore') {
   if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved AC timeout.' }
   & powercfg /setdcvalueindex $old.Scheme $subSleep $setting ([int]$old.DC)
   if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved battery timeout.' }
-  & powercfg /setactive $old.Scheme
-  if ($LASTEXITCODE -ne 0) { throw 'Restored values but Windows did not activate the original plan.' }
-  Write-Host 'Restored the saved AC and battery sleep timeout values.'
+  $currentOutput = (& powercfg /getactivescheme 2>&1 | Out-String)
+  $currentScheme = [regex]::Match($currentOutput, '[0-9a-fA-F-]{36}').Value
+  if ($currentScheme -eq $old.Scheme) {
+    & powercfg /setactive $old.Scheme
+    if ($LASTEXITCODE -ne 0) { throw 'Restored saved values but Windows did not reactivate the saved plan.' }
+  } else {
+    Write-Host "Restored values on saved plan $($old.Scheme) without changing the currently active plan $currentScheme."
+  }
+  Write-Host 'Restored saved AC and battery sleep timeout values.'
 }
