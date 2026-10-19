@@ -4,11 +4,17 @@ A small Windows kit for running the **official** Desktop Commander Remote Device
 
 ## Quick installation
 
-1. Download `dc-headless-setup-windows.zip` from the [latest release](https://github.com/god-like-peasant/dc-headless-setup/releases/latest) and extract the ZIP.
-2. In File Explorer, right-click `Install-DesktopCommander.ps1` and choose **Run with PowerShell**. If Windows blocks the script, do not disable security. Open PowerShell in the extracted folder and run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-DesktopCommander.ps1`; this bypass applies to that process only.
-3. If Node.js 18+ is not found, the installer offers to use `winget` to install the official Node.js LTS package scoped to the user. If unavailable, install Node.js 18+ from [nodejs.org](https://nodejs.org/), then rerun. Review any Windows package-manager prompt; the installer does not silently elevate.
-4. On first authorization, the official package prints a verification URL and one-time code. Open the URL, compare the code exactly, then explicitly approve the device in the official authorization page. Never share the code. When the agent reports that it connected, return to the PowerShell window and press **Ctrl+C** once to return to the installer. If the initial command reports an exit after you interrupt it, continue only if authorization succeeded and the device appears in the official dashboard; otherwise rerun the installer.
-5. The installer creates and starts a per-user Scheduled Task with **limited privileges**, set to run at sign-in. It never asks for administrator rights. Open `Status-DesktopCommander.ps1` from PowerShell to check task and connectivity status.
+For the automatic download-and-extract path, open a **normal, non-administrator PowerShell** window and paste this one-line command:
+
+```powershell
+$p=Join-Path $env:TEMP 'Bootstrap-DesktopCommander.ps1'; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/god-like-peasant/dc-headless-setup/main/Bootstrap-DesktopCommander.ps1' -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+```
+
+The bootstrap quietly downloads the latest release ZIP and checksum, verifies SHA-256, extracts the kit under `%LOCALAPPDATA%\DesktopCommanderSetup\kit`, and launches the installer. The execution-policy bypass applies only to that child PowerShell process; it does not change the machine policy. You can inspect the [bootstrap source](https://github.com/god-like-peasant/dc-headless-setup/blob/main/Bootstrap-DesktopCommander.ps1) before running the command. Typing a URL into Chrome only downloads a file; browsers intentionally do not run downloaded scripts automatically.
+
+1. The installer checks for Node.js 18+. If it is missing, it offers to use `winget` for the official Node.js LTS package scoped to the user. If `winget` is unavailable, install Node.js 18+ from [nodejs.org](https://nodejs.org/) and rerun the command. Review any package-manager prompt; the kit does not silently elevate.
+2. First-time device authorization stays visible and interactive. Open the URL shown, compare the one-time code exactly, and approve only if it matches. Never share the code. When the agent reports that it connected, return to PowerShell and press **Ctrl+C** once to finish background setup. If the initial command exits, continue only if authorization succeeded and the device appears in the official dashboard; otherwise rerun the bootstrap.
+3. The installer creates and starts a per-user Scheduled Task with **limited privileges**, set to run at sign-in. It does not ask for administrator rights. Use `Status-DesktopCommander.ps1` in the extracted kit folder to check task and connectivity status.
 
 Only authorize a device you control. Remote tool calls execute locally with the permissions of the signed-in Windows user, so files and actions accessible to that account may be reachable through the authorized remote service.
 
@@ -45,6 +51,7 @@ Run `Uninstall-DesktopCommander.ps1`. It removes the named per-user task and off
 ## Contents
 
 - `Install-DesktopCommander.ps1` — prerequisite check, interactive authorization, and task setup.
+- `Bootstrap-DesktopCommander.ps1` — checksum-verified latest ZIP download, extraction, and installer launch.
 - `Supervisor.ps1` — hidden background launch, bounded retry, and logging.
 - `Status-DesktopCommander.ps1` — local task, Node, session-file-presence, and connectivity report.
 - `Power-Settings.ps1` — status and reversible optional AC sleep-timeout adjustment.

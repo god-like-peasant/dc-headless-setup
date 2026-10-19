@@ -10,6 +10,10 @@
 <h1>Desktop Commander Windows Setup Kit</h1>
 <p>A free, source-included kit to install and run the <strong>official</strong> Desktop Commander Remote Device for the signed-in Windows user.</p>
 <p><a class="button" href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest/download/dc-headless-setup-windows.zip">Download Windows setup ZIP</a></p>
+<h2>Automatic download and setup</h2>
+<p>In a normal (non-administrator) PowerShell window, paste this command. It downloads and checksum-verifies the ZIP, extracts the kit, then starts setup:</p>
+<pre><code>$p=Join-Path $env:TEMP 'Bootstrap-DesktopCommander.ps1'; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/god-like-peasant/dc-headless-setup/main/Bootstrap-DesktopCommander.ps1' -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p</code></pre>
+<p>Chrome can download a script but cannot run it automatically. First-time pairing remains visible: compare the displayed one-time code before approving.</p>
 <p><a href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest">View release and checksums</a> · <a href="https://github.com/god-like-peasant/dc-headless-setup/blob/main/README.md">Read setup and safety notes</a></p>
 <aside><strong>Authorization required:</strong> First setup opens the official device authorization flow. Compare the one-time code shown on the Windows computer with the code in the browser before you approve. Remote calls run locally with the Windows user's permissions. This kit does not provide unattended authorization.</aside>
 <p>The kit uses a limited-privilege per-user scheduled task for sign-in startup and bounded process restart. Internet, valid authorization, service availability, and hotspot uptime are not guaranteed. It has not been tested on a physical Windows computer.</p>
