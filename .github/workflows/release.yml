@@ -1,0 +1,58 @@
+name: Publish Windows setup release
+
+on:
+  workflow_run:
+    workflows: ["Windows Kit CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Package the source that passed CI and publish checksum
+        shell: pwsh
+        env:
+          CI_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content AGENT_VERSION.txt -Raw).Trim()
+          $tag = "v1.2.$env:CI_RUN_NUMBER"
+          $zipName = 'dc-headless-setup-windows.zip'
+          $zipPath = Join-Path $env:RUNNER_TEMP $zipName
+          $sumsPath = Join-Path $env:RUNNER_TEMP 'SHA256SUMS.txt'
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          $files = @(
+            'AGENT_VERSION.txt','README.md','LICENSE','index.html',
+            'Bootstrap-DesktopCommander.ps1','Install-DesktopCommander.ps1',
+            'Run-Agent.ps1','Supervisor.ps1','Status-DesktopCommander.ps1',
+            'Uninstall-DesktopCommander.ps1','Power-Settings.ps1'
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Release file missing: $file" }
+          }
+          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          Compress-Archive -LiteralPath $files -DestinationPath $zipPath -CompressionLevel Optimal
+          $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath $sumsPath -Encoding ASCII -Value "$hash  $zipName"
+          Set-Content -LiteralPath $notesPath -Encoding UTF8 -Value @(
+            'Automated release of the Windows headless setup kit.'
+            ''
+            "Official Desktop Commander package pin: $version"
+            "Source commit: $env:GITHUB_SHA"
+            "ZIP SHA-256: $hash"
+            ''
+            'Validation: Windows Kit CI passed (PowerShell parser plus static safety/recovery checks).'
+            'Not tested by this workflow: physical-device OAuth pairing, actual remote reconnection, or hotspot behavior.'
+          )
+          gh release create $tag $zipPath $sumsPath --title "Windows setup kit $tag" --notes-file $notesPath --target $env:GITHUB_SHA --latest
