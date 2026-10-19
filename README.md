@@ -1,68 +1,76 @@
 # Desktop Commander Headless Setup Kit for Windows
 
-A small Windows kit for running the **official** Desktop Commander Remote Device under the signed-in user's account. It does not expose a local unauthenticated command port and does not disable Windows security features.
+A free, source-included Windows kit for running the **official** Desktop Commander Remote Device under the signed-in user's account. It does not expose an unauthenticated local command port, request administrator privileges, or disable Windows security features.
 
-## Quick installation
+## Setup
 
-For the automatic download-and-extract path, open a **normal, non-administrator PowerShell** window and paste this one-line command:
+1. On the target Windows computer, open the [setup page](https://god-like-peasant.github.io/dc-headless-setup/).
+2. Download the setup ZIP and extract it using Windows File Explorer.
+3. In the extracted folder, right-click Install-DesktopCommander.ps1 and choose **Run with PowerShell**. Do not run the setup elevated as Administrator.
+4. The installer checks for Node.js 18+. If Node and npm/npx are missing, it downloads the current official Node.js LTS Windows ZIP into the current user's profile, verifies its SHA-256 against the official SHASUMS256.txt, and checks that node.exe, npm.cmd, and npx.cmd exist. It does not require a machine-wide install or elevation for this fallback.
+5. It verifies a pinned official Desktop Commander package version in npm. The version is pinned in AGENT_VERSION.txt; do not change that pin without reviewing upstream changes, running tests, and issuing a new kit release.
+6. On first pairing, the official agent shows a verification URL and one-time code. Open the URL, compare the code character-for-character, and approve only if it matches. Never share the code. After the agent reports successful connection, press **Ctrl+C once** to return to the installer. Confirm the device shows **Online** in the official Remote MCP dashboard, then type ONLINE in the installer.
+7. The installer copies required scripts to %LOCALAPPDATA%\DesktopCommanderSetup\kit, writes non-secret configuration under %LOCALAPPDATA%\DesktopCommanderRemote, and creates a per-user Scheduled Task with **limited privileges** to start the hidden supervisor at Windows sign-in.
 
-```powershell
-$p=Join-Path $env:TEMP 'Bootstrap-DesktopCommander.ps1'; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/god-like-peasant/dc-headless-setup/main/Bootstrap-DesktopCommander.ps1' -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
-```
+The first authorization is intentionally interactive. If saved authorization expires or is revoked, a background process cannot approve OAuth for you. Rerun the installer and complete authorization again.
 
-The bootstrap quietly downloads the latest release ZIP and checksum, verifies SHA-256, extracts the kit under `%LOCALAPPDATA%\DesktopCommanderSetup\kit`, and launches the installer. The execution-policy bypass applies only to that child PowerShell process; it does not change the machine policy. You can inspect the [bootstrap source](https://github.com/god-like-peasant/dc-headless-setup/blob/main/Bootstrap-DesktopCommander.ps1) before running the command. Typing a URL into Chrome only downloads a file; browsers intentionally do not run downloaded scripts automatically.
+## What is installed
 
-1. The installer checks for Node.js 18+. If it is missing, it offers to use `winget` for the official Node.js LTS package scoped to the user. If `winget` is unavailable, install Node.js 18+ from [nodejs.org](https://nodejs.org/) and rerun the command. Review any package-manager prompt; the kit does not silently elevate.
-2. First-time device authorization stays visible and interactive. Open the URL shown, compare the one-time code exactly, and approve only if it matches. Never share the code. When the agent reports that it connected, return to PowerShell and press **Ctrl+C** once to finish background setup. If the initial command exits, continue only if authorization succeeded and the device appears in the official dashboard; otherwise rerun the bootstrap.
-3. The installer creates and starts a per-user Scheduled Task with **limited privileges**, set to run at sign-in. It does not ask for administrator rights. Use `Status-DesktopCommander.ps1` in the extracted kit folder to check task and connectivity status.
+- Install-DesktopCommander.ps1: checks prerequisites and package version, performs interactive pairing, saves non-secret configuration, and registers the per-user startup task.
+- Run-Agent.ps1: launches the pinned official remote agent and captures output locally.
+- Supervisor.ps1: runs hidden, detects agent exits, uses bounded exponential process restart, detects persistent known channel-error markers without a later recovery marker, and restarts an agent after a 15-minute failure window. It also bounds the log and recognizes cases likely to require interactive authorization.
+- Status-DesktopCommander.ps1: reports local task, binary/config/session presence, recent log markers and connectivity prerequisites. It does not claim that an old success marker proves current cloud reachability.
+- Power-Settings.ps1: reports power settings by default; optionally applies a reversible AC sleep-timeout change.
+- Uninstall-DesktopCommander.ps1: removes the scheduled task and offers to remove kit logs/config and copied scripts, while preserving authorization and unrelated data by default.
+- Bootstrap-DesktopCommander.ps1: optional helper that downloads the latest release ZIP, verifies SHA-256 before extraction, then starts the installer.
 
-Only authorize a device you control. Remote tool calls execute locally with the permissions of the signed-in Windows user, so files and actions accessible to that account may be reachable through the authorized remote service.
+## Recovery model and limitations
 
-## What is installed and how recovery works
+The official remote agent has its own connection recovery logic. The local supervisor adds:
+1. Automatic startup at Windows sign-in.
+2. Bounded restart delays if the agent process exits.
+3. Detection of known remote channel error markers that persist for 15 minutes without a subsequent healthy marker.
+4. Detection of apparent interactive authorization prompts that cannot be completed safely by a hidden task.
+5. Local logs and status information.
 
-The kit runs `npx --yes --package @wonderwhy-er/desktop-commander@latest -- desktop-commander remote`, which obtains the official package from npm. It deliberately uses the official package's latest release at startup rather than bundling an unreviewed binary; this means first start and updates require internet access and the npm package registry.
+This is best-effort recovery, **not a guarantee of always-online operation**. Internet outages, expired/revoked authorization, service incidents, sleep, Windows updates, and device/driver issues cannot all be fixed automatically. The supervisor does not bypass OAuth or approve a device unattended.
 
-A per-user Task Scheduler task starts a hidden PowerShell supervisor at sign-in. The supervisor checks connectivity to the npm registry, starts the official agent, writes logs to `%LOCALAPPDATA%\DesktopCommanderRemote\agent.log`, and retries exited processes with increasing delays capped at ten minutes. Task Scheduler also has restart settings. This is process recovery, not a guarantee of network recovery, account validity, service availability, or continuous online status. If OAuth authorization expires or is revoked, inspect logs and rerun the installer to authorize again. Use the official `remote --logout` command only if you intentionally want to remove saved local authorization, and revoke the device separately in the official dashboard if needed.
+Logs and non-secret configuration live in %LOCALAPPDATA%\DesktopCommanderRemote. The saved authorization file is maintained by the official agent under %USERPROFILE%\.desktop-commander-device\device.json. Do not share or copy it. Remote tool calls run locally with the current Windows user's permissions, so files and actions available to that user may be reachable through the authorized service.
 
-The first authorization session is foreground and explicitly user-approved. Later launches run in the background and normally reuse the official saved session in `%USERPROFILE%\.desktop-commander-device\device.json`. Windows permissions govern access to that file; this kit does not change its ACL. Do not copy or share it.
+## Wi-Fi, sleep, and hotspots
 
-## Connectivity and power
+Run these commands in PowerShell from the extracted kit folder:
 
-`Power-Settings.ps1 -Mode Status` reports guidance. The optional `-Mode Apply` saves current sleep timeout values, asks for explicit confirmation, and changes the AC sleep timeout only; `-Mode Restore` restores the saved AC and battery timeout values. Do not use if a managed device policy forbids it. The kit does not alter Wi-Fi adapter power settings because Windows driver and device controls differ.
+    .\Status-DesktopCommander.ps1
+    .\Power-Settings.ps1 -Mode Status
+    .\Power-Settings.ps1 -Mode Apply
+    .\Power-Settings.ps1 -Mode Restore
 
-Windows Mobile Hotspot may expose a power-saving option in **Settings > Network & internet > Mobile hotspot**. When present, review it there; Windows may turn the hotspot off to save power. The option and behavior vary by Windows version, adapter, driver, and power state. No script here changes that toggle. The agent cannot guarantee the hotspot remains active: sleep, battery depletion, Wi-Fi/hotspot hardware or driver limits, internet-provider problems, and external hotspot timeouts can all interrupt service.
+Apply requests explicit confirmation before setting **AC sleep timeout** to Never; the battery timeout remains unchanged and original AC/battery values are saved first. Restore restores the saved values. Staying awake increases power use and heat.
 
-## Check status, logs, and troubleshoot
+The kit does not change Wi-Fi adapter driver settings or automatically manipulate Windows Mobile Hotspot's platform-specific power toggle. Review **Settings > Network & internet > Mobile hotspot** and turn off Power saving if your Windows version exposes it and you accept the battery trade-off. Windows, a Wi-Fi driver, a depleted battery, sleep, an Internet provider, or an external hotspot can still interrupt connectivity. No tool can guarantee an always-on hotspot in every environment.
 
-Run these from PowerShell in the extracted kit folder:
+## Diagnostics
 
-```powershell
-.\Status-DesktopCommander.ps1
-Get-Content "$env:LOCALAPPDATA\DesktopCommanderRemote\agent.log" -Tail 80
-.\Power-Settings.ps1 -Mode Status
-```
+- Run .\Status-DesktopCommander.ps1.
+- Read agent output with Get-Content "$env:LOCALAPPDATA\DesktopCommanderRemote\agent.log" -Tail 80.
+- Read supervisor decisions with Get-Content "$env:LOCALAPPDATA\DesktopCommanderRemote\supervisor.log" -Tail 80.
+- Verify device status in the [official Remote MCP dashboard](https://mcp.desktopcommander.app/).
+- If re-authorization is required, rerun the installer and complete browser pairing; do not share device.json.
 
-If the task is not running, use Task Scheduler to inspect **Desktop Commander Remote Device**, or rerun the installer. If connectivity is unavailable, restore internet access and allow the supervisor's bounded retry to proceed. For OAuth failures, confirm the device remains authorized in the official Remote MCP dashboard; rerun the installer to pair again when requested. For more diagnostics, test the official command interactively with `npx @wonderwhy-er/desktop-commander@latest remote --debug`. Never share verification codes, logs containing sensitive data, or `device.json`.
+## Uninstall and rollback
 
-## Uninstall
+Run .\Uninstall-DesktopCommander.ps1. It removes the per-user Scheduled Task and offers separate choices for deleting kit logs/config and copied installer scripts. Saved authorization, Node.js, and power settings are preserved. If you applied the optional AC sleep-timeout change, run .\Power-Settings.ps1 -Mode Restore before removing the scripts. Use the official remote --logout command from the pinned package only if you intentionally want to remove local authorization; revoke the device separately in the official dashboard if appropriate.
 
-Run `Uninstall-DesktopCommander.ps1`. It removes the named per-user task and offers to delete only this kit's logs. It preserves the Desktop Commander authorization file, Node.js, and power settings. Use the official `npx @wonderwhy-er/desktop-commander@latest remote --logout` command to remove local auth, and `Power-Settings.ps1 -Mode Restore` to restore this kit's optional power change.
+## Free/public links
 
-## Contents
-
-- `Install-DesktopCommander.ps1` — prerequisite check, interactive authorization, and task setup.
-- `Bootstrap-DesktopCommander.ps1` — checksum-verified latest ZIP download, extraction, and installer launch.
-- `Supervisor.ps1` — hidden background launch, bounded retry, and logging.
-- `Status-DesktopCommander.ps1` — local task, Node, session-file-presence, and connectivity report.
-- `Power-Settings.ps1` — status and reversible optional AC sleep-timeout adjustment.
-- `Uninstall-DesktopCommander.ps1` — remove the task and optionally kit logs.
-
-## Verification and limitations
-
-The ZIP is a PowerShell source kit, not a Windows-tested executable. This build is inspected for package identity, paths, and command safety, and its archive/files can be verified on the publishing host. Windows execution, Node installation, scheduled-task behavior on a target Windows build, interactive OAuth pairing, real reconnection, and hotspot/power effects have **not** been tested on a physical Windows computer. The agent depends on the official Desktop Commander Remote MCP service and the authorized AI client.
-
-## Sources
-
-- Official setup documentation: https://github.com/wonderwhy-er/DesktopCommanderMCP/blob/main/src/remote-device/README.md
-- Official project: https://github.com/wonderwhy-er/DesktopCommanderMCP
+- Website: https://god-like-peasant.github.io/dc-headless-setup/
+- Latest release: https://github.com/god-like-peasant/dc-headless-setup/releases/latest
+- Direct ZIP: https://github.com/god-like-peasant/dc-headless-setup/releases/latest/download/dc-headless-setup-windows.zip
+- Source: https://github.com/god-like-peasant/dc-headless-setup
+- Official upstream source: https://github.com/wonderwhy-er/DesktopCommanderMCP
 - Official npm package: https://www.npmjs.com/package/@wonderwhy-er/desktop-commander
+
+## Validation boundaries
+
+The Windows CI workflow checks PowerShell syntax, static safety/recovery invariants, package version pinning, and landing-page links. After successful CI on main, a release workflow archives the tested source and calculates a checksum. Static CI **does not** establish that authorization, Task Scheduler behavior, process-tree termination, real remote reconnection, or hotspot behavior passed an end-to-end test on physical Windows hardware.

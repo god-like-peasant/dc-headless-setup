@@ -1,22 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Desktop Commander Windows Setup Kit</title>
-<meta name="description" content="Free Windows setup kit for the official Desktop Commander Remote Device.">
-<style>body{font:17px/1.6 system-ui,sans-serif;max-width:760px;margin:8vh auto;padding:0 22px;color:#182230}h1{line-height:1.15}a.button{display:inline-block;background:#155eef;color:white;padding:14px 20px;border-radius:8px;text-decoration:none;font-weight:700;margin:12px 0}aside{background:#fff7e6;border-left:4px solid #f79009;padding:14px;margin:22px 0}small{color:#475467}</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desktop Commander — Free Windows Headless Setup</title>
+<meta name="description" content="Free source-included Windows setup kit for the official Desktop Commander Remote Device, with background startup and bounded recovery.">
+<style>
+:root{color-scheme:light dark}body{font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;max-width:820px;margin:7vh auto;padding:0 22px;color:CanvasText;background:Canvas}h1{line-height:1.15;letter-spacing:-.02em}a{overflow-wrap:anywhere}.button{display:inline-block;background:#155eef;color:white;padding:13px 19px;border-radius:8px;text-decoration:none;font-weight:700;margin:8px 0}.panel{border:1px solid #8886;border-radius:12px;padding:16px;margin:18px 0}.notice{background:#a1620717;border-left:4px solid #d97706;padding:14px;margin:20px 0}small{opacity:.8}
+</style>
 </head>
 <body>
-<h1>Desktop Commander Windows Setup Kit</h1>
-<p>A free, source-included kit to install and run the <strong>official</strong> Desktop Commander Remote Device for the signed-in Windows user.</p>
-<p><a class="button" href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest/download/dc-headless-setup-windows.zip">Download Windows setup ZIP</a></p>
-<h2>Automatic download and setup</h2>
-<p>In a normal (non-administrator) PowerShell window, paste this command. It downloads and checksum-verifies the ZIP, extracts the kit, then starts setup:</p>
-<pre><code>$p=Join-Path $env:TEMP 'Bootstrap-DesktopCommander.ps1'; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/god-like-peasant/dc-headless-setup/main/Bootstrap-DesktopCommander.ps1' -OutFile $p; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p</code></pre>
-<p>Chrome can download a script but cannot run it automatically. First-time pairing remains visible: compare the displayed one-time code before approving.</p>
-<p><a href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest">View release and checksums</a> · <a href="https://github.com/god-like-peasant/dc-headless-setup/blob/main/README.md">Read setup and safety notes</a></p>
-<aside><strong>Authorization required:</strong> First setup opens the official device authorization flow. Compare the one-time code shown on the Windows computer with the code in the browser before you approve. Remote calls run locally with the Windows user's permissions. This kit does not provide unattended authorization.</aside>
-<p>The kit uses a limited-privilege per-user scheduled task for sign-in startup and bounded process restart. Internet, valid authorization, service availability, and hotspot uptime are not guaranteed. It has not been tested on a physical Windows computer.</p>
-<p><small>Free and open source. No paid hosting, domain, subscription, or payment method required.</small></p>
+<h1>Desktop Commander Headless Setup for Windows</h1>
+<p>A free, source-included installer for the <strong>official Desktop Commander Remote Device</strong>. It adds quiet startup at Windows sign-in, bounded process recovery, logs, and status checks. No paid hosting, paid software, or machine-wide administrator install is required for the user-local Node.js fallback.</p>
+<div class="panel">
+  <h2>Download the setup kit</h2>
+  <p>On the target Windows computer, download the ZIP and choose <strong>Extract All</strong>. In the extracted folder, right-click <strong>Install-DesktopCommander.ps1</strong> and choose <strong>Run with PowerShell</strong>. Do not run as Administrator.</p>
+  <p><a class="button" href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest/download/dc-headless-setup-windows.zip">Download setup ZIP</a></p>
+  <p><a href="https://github.com/god-like-peasant/dc-headless-setup/releases/latest">Latest release and SHA-256 checksum</a> · <a href="https://github.com/god-like-peasant/dc-headless-setup">Inspect source</a></p>
+</div>
+<div class="notice"><strong>One-time human authorization is required.</strong> The installer displays a URL and code for the official device-authorization flow. Compare the code character-for-character and approve only if it matches. Browsers do not automatically run downloaded installers or scripts from a URL.</div>
+<h2>After first pairing</h2>
+<p>A per-user Windows Scheduled Task starts a hidden supervisor at sign-in. It restarts exited processes with bounded backoff and can restart an agent after sustained known connection-error markers. It cannot bypass OAuth or guarantee internet/cloud availability.</p>
+<h2>Hotspot and Wi-Fi notes</h2>
+<p>Review <strong>Settings &gt; Network &amp; internet &gt; Mobile hotspot</strong> and disable its Power saving switch if your Windows version offers one and you accept the battery trade-off. The kit does not change driver-specific Wi-Fi settings or force private Windows hotspot behavior. Sleep, battery depletion, drivers, and external hotspots can still interrupt service.</p>
+<p><a href="https://github.com/god-like-peasant/dc-headless-setup/blob/main/README.md">Full instructions and troubleshooting</a></p>
+<small>Free and open source. Static CI checks are not a substitute for end-to-end testing on the target Windows computer.</small>
 </body>
 </html>
