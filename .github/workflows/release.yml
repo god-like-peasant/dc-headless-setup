@@ -56,4 +56,13 @@ jobs:
             'Validation: Windows Kit CI passed (PowerShell parser plus static safety/recovery checks).'
             'Not tested by this workflow: physical-device OAuth pairing, actual remote reconnection, or hotspot behavior.'
           )
-          gh release create $tag $zipPath $sumsPath --title "Windows setup kit $tag" --notes-file $notesPath --target $env:SOURCE_SHA --latest
+          $existingTarget = gh release view $tag --json targetCommitish --jq .targetCommitish 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if ($existingTarget -ne $env:SOURCE_SHA) {
+              throw "Release tag $tag already targets $existingTarget, not the tested commit $env:SOURCE_SHA. Refusing to overwrite it."
+            }
+            gh release upload $tag $zipPath $sumsPath --clobber
+            gh release edit $tag --title "Windows setup kit $tag" --notes-file $notesPath
+          } else {
+            gh release create $tag $zipPath $sumsPath --title "Windows setup kit $tag" --notes-file $notesPath --target $env:SOURCE_SHA --latest
+          }

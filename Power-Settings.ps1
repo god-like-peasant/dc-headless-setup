@@ -28,7 +28,34 @@ if ($Mode -eq 'Status') {
 }
 if ($Mode -eq 'Apply') {
   New-Item -ItemType Directory -Force -Path $root | Out-Null
-  if (-not (Test-Path -LiteralPath $backup)) {
+  if (Test-Path -LiteralPath $backup) {
+    $saved = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json
+    if ($saved.Scheme -notmatch '^[0-9a-fA-F-]{36}
+if ($Mode -eq 'Restore') {
+  if (-not (Test-Path -LiteralPath $backup)) { throw 'No saved power-settings backup exists; nothing was restored.' }
+  $old = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json
+  if ($old.Scheme -notmatch '^[0-9a-fA-F-]{36}$' -or $null -eq $old.AC -or $null -eq $old.DC) { throw 'The power backup did not pass validation; no change was made.' }
+  & powercfg /setacvalueindex $old.Scheme $subSleep $setting ([int]$old.AC)
+  if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved AC timeout.' }
+  & powercfg /setdcvalueindex $old.Scheme $subSleep $setting ([int]$old.DC)
+  if ($LASTEXITCODE -ne 0) { throw 'Failed restoring the saved battery timeout.' }
+  $currentOutput = (& powercfg /getactivescheme 2>&1 | Out-String)
+  $currentScheme = [regex]::Match($currentOutput, '[0-9a-fA-F-]{36}').Value
+  if ($currentScheme -eq $old.Scheme) {
+    & powercfg /setactive $old.Scheme
+    if ($LASTEXITCODE -ne 0) { throw 'Restored saved values but Windows did not reactivate the saved plan.' }
+  } else {
+    Write-Host "Restored values on saved plan $($old.Scheme) without changing the currently active plan $currentScheme."
+  }
+  Write-Host 'Restored saved AC and battery sleep timeout values.'
+}
+ -or $null -eq $saved.AC -or $null -eq $saved.DC) {
+      throw 'The existing power backup did not pass validation; no change was made.'
+    }
+    if ($saved.Scheme -ne $scheme) {
+      throw "A backup exists for power plan $($saved.Scheme), but $scheme is active now. Run -Mode Restore first before applying the change to another plan."
+    }
+  } else {
     $values = Read-SleepTimeouts $scheme
     @{ Scheme = $scheme; AC = $values.AC; DC = $values.DC; SavedAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -LiteralPath $backup -Encoding UTF8
   }
