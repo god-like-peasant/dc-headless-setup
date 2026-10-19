@@ -32,6 +32,10 @@ if ($bootstrap.IndexOf('$actual -ne $expected') -gt $bootstrap.IndexOf('Expand-A
 if ($uninstall -notmatch 'Get-CimInstance Win32_Process' -or $uninstall -notmatch 'authorization was preserved') { throw 'Uninstall must constrain process-tree termination and preserve authorization by default.' }
 if ($readme -notmatch 'Extract it' -or $readme -notmatch 'first authorization is intentionally interactive') { throw 'README is missing setup and pairing explanations.' }
 if ($page -notmatch 'releases/latest/download/dc-headless-setup-windows\.zip' -or $page -notmatch 'Extract All') { throw 'Landing page must point to the release ZIP and explain extraction.' }
+$releaseWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\release.yml') -Raw
+if ($releaseWorkflow -notmatch "workflow_run\.conclusion == 'success'" -or $releaseWorkflow -notmatch "workflow_run\.event == 'push'") { throw 'Release must require successful push CI and exclude PR CI.' }
+if ($releaseWorkflow -notmatch 'workflow_run\.head_sha' -or $releaseWorkflow -notmatch '\$env:SOURCE_SHA') { throw 'Release must tag and describe the exact commit that passed CI.' }
+
 $unsafePatterns = @('(?i)\bInvoke-Expression\b','(?i)\bEncodedCommand\b','(?i)Set-ExecutionPolicy\s+Unrestricted','(?i)New-Object\s+System\.Net\.(HttpListener|Sockets\.TcpListener)')
 $productionScripts = @($scriptFiles | Where-Object { $_.Name -ne 'Test-Kit.ps1' })
 foreach ($pattern in $unsafePatterns) {
